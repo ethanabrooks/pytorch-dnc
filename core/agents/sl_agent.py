@@ -101,7 +101,7 @@ class SLAgent(Agent):  # for supervised learning tasks
             loss_vb.backward()
             self.optimizer.step()
 
-        return loss_vb.data[0]
+        return loss_vb.data.item()
 
     def fit_model(self):  # the most basic control loop, to ease integration of new envs
         # self.optimizer = self.optim(self.circuit.parameters(), lr=self.lr)              # adam
