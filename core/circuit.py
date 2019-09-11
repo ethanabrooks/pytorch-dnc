@@ -6,7 +6,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a custom rnn cell
+
+class Circuit(
+    nn.Module
+):  # NOTE: basically this whole module is treated as a custom rnn cell
     def __init__(self, args):
         super(Circuit, self).__init__()
         # logging
@@ -49,16 +52,22 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
         self.accessor_params.mem_wid = self.mem_wid
         self.accessor_params.clip_value = self.clip_value
 
-        self.logger.warning("<-----------------------------======> Circuit:    {Controller, Accessor}")
+        self.logger.warning(
+            "<-----------------------------======> Circuit:    {Controller, Accessor}"
+        )
 
     def _init_weights(self):
         raise NotImplementedError("not implemented in base calss")
 
     def print_model(self):
-        self.logger.warning("<-----------------------------======> Circuit:    {Overall Architecture}")
+        self.logger.warning(
+            "<-----------------------------======> Circuit:    {Overall Architecture}"
+        )
         self.logger.warning(self)
 
-    def _reset_states(self): # should be called at the beginning of forwarding a new input sequence
+    def _reset_states(
+        self
+    ):  # should be called at the beginning of forwarding a new input sequence
         # we first reset the previous read vector
         self.read_vec_vb = Variable(self.read_vec_ts).type(self.dtype)
         # we then reset the controller's hidden state
@@ -82,8 +91,17 @@ class Circuit(nn.Module):   # NOTE: basically this whole module is treated as a 
         # 2. then we write to memory_{t-1} to get memory_{t}; then read from memory_{t} to get read_vec_{t}
         self.read_vec_vb = self.accessor.forward(hidden_vb)
         # 3. finally we concat the output from the controller and the current read_vec_{t} to get the final output
-        output_vb = self.hid_to_out(torch.cat((hidden_vb.view(-1, self.hidden_dim),
-                                               self.read_vec_vb.view(-1, self.read_vec_dim)), 1))
+        output_vb = self.hid_to_out(
+            torch.cat(
+                (
+                    hidden_vb.view(-1, self.hidden_dim),
+                    self.read_vec_vb.view(-1, self.read_vec_dim),
+                ),
+                1,
+            )
+        )
 
         # we clip the output values here
-        return F.sigmoid(torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)).view(1, self.batch_size, self.output_dim)
+        return F.sigmoid(
+            torch.clamp(output_vb, min=-self.clip_value, max=self.clip_value)
+        ).view(1, self.batch_size, self.output_dim)

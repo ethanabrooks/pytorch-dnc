@@ -7,6 +7,7 @@ from core.circuit import Circuit
 from core.controllers.lstm_controller import LSTMController as Controller
 from core.accessors.dynamic_accessor import DynamicAccessor as Accessor
 
+
 class DNCCircuit(Circuit):
     def __init__(self, args):
         super(DNCCircuit, self).__init__(args)
@@ -16,7 +17,9 @@ class DNCCircuit(Circuit):
         self.accessor = Accessor(self.accessor_params)
 
         # build model
-        self.hid_to_out = nn.Linear(self.hidden_dim + self.read_vec_dim, self.output_dim)
+        self.hid_to_out = nn.Linear(
+            self.hidden_dim + self.read_vec_dim, self.output_dim
+        )
 
         self._reset()
 

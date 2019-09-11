@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
+
 class Head(nn.Module):
     def __init__(self, args):
         super(Head, self).__init__()
@@ -13,8 +14,8 @@ class Head(nn.Module):
         # params
         self.visualize = args.visualize
         if self.visualize:
-            self.vis      = args.vis
-            self.refs     = args.refs
+            self.vis = args.vis
+            self.refs = args.refs
             self.win_head = None
         self.use_cuda = args.use_cuda
         self.dtype = args.dtype
@@ -27,14 +28,20 @@ class Head(nn.Module):
         self.num_allowed_shifts = args.num_allowed_shifts
 
     def _reset_states(self):
-        self.wl_prev_vb = Variable(self.wl_prev_ts).type(self.dtype) # batch_size x num_heads x mem_hei
+        self.wl_prev_vb = Variable(self.wl_prev_ts).type(
+            self.dtype
+        )  # batch_size x num_heads x mem_hei
 
-    def _reset(self):           # NOTE: should be called at each child's __init__
+    def _reset(self):  # NOTE: should be called at each child's __init__
         # self._init_weights()
-        self.type(self.dtype)   # put on gpu if possible
+        self.type(self.dtype)  # put on gpu if possible
         # TODO: see how this one is reset
         # reset internal states
-        self.wl_prev_ts = torch.eye(1, self.mem_hei).unsqueeze(0).expand(self.batch_size, self.num_heads, self.mem_hei)
+        self.wl_prev_ts = (
+            torch.eye(1, self.mem_hei)
+            .unsqueeze(0)
+            .expand(self.batch_size, self.num_heads, self.mem_hei)
+        )
         self._reset_states()
 
     def _visual(self):

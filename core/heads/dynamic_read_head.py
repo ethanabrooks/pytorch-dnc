@@ -7,6 +7,7 @@ import torch.nn.functional as F
 
 from core.heads.dynamic_head import DynamicHead
 
+
 class DynamicReadHead(DynamicHead):
     def __init__(self, args):
         super(DynamicReadHead, self).__init__(args)
@@ -21,18 +22,29 @@ class DynamicReadHead(DynamicHead):
         # build model: add additional outs for read
         # for locatoin focus: temporal linkage
         self.hid_2_free_gate = nn.Linear(self.hidden_dim, self.num_heads * 1)
-        self.hid_2_read_mode = nn.Linear(self.hidden_dim, self.num_heads * self.num_read_modes)
+        self.hid_2_read_mode = nn.Linear(
+            self.hidden_dim, self.num_heads * self.num_read_modes
+        )
 
         # logging
-        self.logger.warning("<-----------------------------------> ReadHeads:  {" + str(self.num_heads) + " heads}")
+        self.logger.warning(
+            "<-----------------------------------> ReadHeads:  {"
+            + str(self.num_heads)
+            + " heads}"
+        )
         self.logger.warning(self)
 
         # reset
         self._reset()
 
     def visual(self):
-        if self.visualize:      # here we visualize the wl_curr of the first batch
-            self.win_head = self.vis.heatmap(self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).numpy(), env=self.refs, win=self.win_head, opts=dict(title="read_head"))
+        if self.visualize:  # here we visualize the wl_curr of the first batch
+            self.win_head = self.vis.heatmap(
+                self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).numpy(),
+                env=self.refs,
+                win=self.win_head,
+                opts=dict(title="read_head"),
+            )
 
     def _update_usage(self, hidden_vb, prev_usage_vb):
         """
@@ -45,9 +57,13 @@ class DynamicReadHead(DynamicHead):
         returns:
             usage_vb:      [batch_size x mem_hei]
         """
-        self.free_gate_vb = F.sigmoid(self.hid_2_free_gate(hidden_vb)).view(-1, self.num_heads, 1)
-        free_read_weights_vb = self.free_gate_vb.expand_as(self.wl_prev_vb) * self.wl_prev_vb
-        psi_vb = torch.prod(1. - free_read_weights_vb, 1)
+        self.free_gate_vb = F.sigmoid(self.hid_2_free_gate(hidden_vb)).view(
+            -1, self.num_heads, 1
+        )
+        free_read_weights_vb = (
+            self.free_gate_vb.expand_as(self.wl_prev_vb) * self.wl_prev_vb
+        )
+        psi_vb = torch.prod(1.0 - free_read_weights_vb, 1)
         return prev_usage_vb * psi_vb
 
     def _directional_read_weights(self, link_vb, num_write_heads, forward):
@@ -72,14 +88,30 @@ class DynamicReadHead(DynamicHead):
         returns:
             directional_weights_vb: [batch_size x num_read_heads x num_write_heads x mem_hei]
         """
-        expanded_read_weights_vb = self.wl_prev_vb.unsqueeze(1).expand_as(torch.Tensor(self.batch_size, num_write_heads, self.num_heads, self.mem_hei)).contiguous()
+        expanded_read_weights_vb = (
+            self.wl_prev_vb.unsqueeze(1)
+            .expand_as(
+                torch.Tensor(
+                    self.batch_size, num_write_heads, self.num_heads, self.mem_hei
+                )
+            )
+            .contiguous()
+        )
         if forward:
-            directional_weights_vb = torch.bmm(expanded_read_weights_vb.view(-1, self.num_heads, self.mem_hei), link_vb.view(-1, self.mem_hei, self.mem_hei).transpose(1, 2))
+            directional_weights_vb = torch.bmm(
+                expanded_read_weights_vb.view(-1, self.num_heads, self.mem_hei),
+                link_vb.view(-1, self.mem_hei, self.mem_hei).transpose(1, 2),
+            )
         else:
-            directional_weights_vb = torch.bmm(expanded_read_weights_vb.view(-1, self.num_heads, self.mem_hei), link_vb.view(-1, self.mem_hei, self.mem_hei))
-        return directional_weights_vb.view(-1, num_write_heads, self.num_heads, self.mem_hei).transpose(1, 2)
+            directional_weights_vb = torch.bmm(
+                expanded_read_weights_vb.view(-1, self.num_heads, self.mem_hei),
+                link_vb.view(-1, self.mem_hei, self.mem_hei),
+            )
+        return directional_weights_vb.view(
+            -1, num_write_heads, self.num_heads, self.mem_hei
+        ).transpose(1, 2)
 
-    def _location_focus(self, link_vb, num_write_heads): # temporal linkage
+    def _location_focus(self, link_vb, num_write_heads):  # temporal linkage
         """
         calculates the read weights after location focus
         variables needed:
@@ -94,16 +126,30 @@ class DynamicReadHead(DynamicHead):
                        -> focus by content of {t}
         """
         # calculates f_t^i & b_t^i
-        forward_weights_vb  = self._directional_read_weights(link_vb, num_write_heads, True)
-        backward_weights_vb = self._directional_read_weights(link_vb, num_write_heads, False)
+        forward_weights_vb = self._directional_read_weights(
+            link_vb, num_write_heads, True
+        )
+        backward_weights_vb = self._directional_read_weights(
+            link_vb, num_write_heads, False
+        )
         backward_mode_vb = self.read_mode_vb[:, :, :num_write_heads]
-        forward_mode_vb  = self.read_mode_vb[:, :, num_write_heads:2*num_write_heads]
-        content_mode_vb  = self.read_mode_vb[:, :, 2*num_write_heads:]
-        self.wl_curr_vb = content_mode_vb.expand_as(self.wc_vb) * self.wc_vb\
-                        + torch.sum(forward_mode_vb.unsqueeze(3).expand_as(forward_weights_vb) * forward_weights_vb, 2) \
-                        + torch.sum(backward_mode_vb.unsqueeze(3).expand_as(backward_weights_vb) * backward_weights_vb, 2)
+        forward_mode_vb = self.read_mode_vb[:, :, num_write_heads : 2 * num_write_heads]
+        content_mode_vb = self.read_mode_vb[:, :, 2 * num_write_heads :]
+        self.wl_curr_vb = (
+            content_mode_vb.expand_as(self.wc_vb) * self.wc_vb
+            + torch.sum(
+                forward_mode_vb.unsqueeze(3).expand_as(forward_weights_vb)
+                * forward_weights_vb,
+                2,
+            )
+            + torch.sum(
+                backward_mode_vb.unsqueeze(3).expand_as(backward_weights_vb)
+                * backward_weights_vb,
+                2,
+            )
+        )
 
-    def _access(self, memory_vb): # read
+    def _access(self, memory_vb):  # read
         """
         variables needed:
             wl_curr_vb:   [batch_size x num_heads x mem_hei]
@@ -119,7 +165,11 @@ class DynamicReadHead(DynamicHead):
         # content focus
         super(DynamicReadHead, self).forward(hidden_vb, memory_vb)
         # location focus
-        self.read_mode_vb = F.softmax(self.hid_2_read_mode(hidden_vb).view(-1, self.num_heads, self.num_read_modes).transpose(0, 2)).transpose(0, 2)
+        self.read_mode_vb = F.softmax(
+            self.hid_2_read_mode(hidden_vb)
+            .view(-1, self.num_heads, self.num_read_modes)
+            .transpose(0, 2)
+        ).transpose(0, 2)
         self._location_focus(link_vb, num_write_heads)
         self.wl_prev_vb = self.wl_curr_vb
         # access

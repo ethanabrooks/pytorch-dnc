@@ -9,6 +9,7 @@ from torch.autograd import Variable
 from utils.fake_ops import fake_cumprod
 from core.heads.dynamic_head import DynamicHead
 
+
 class DynamicWriteHead(DynamicHead):
     def __init__(self, args):
         super(DynamicWriteHead, self).__init__(args)
@@ -22,18 +23,29 @@ class DynamicWriteHead(DynamicHead):
         self.hid_2_write_gate = nn.Linear(self.hidden_dim, self.num_heads * 1)
         # for access
         self.hid_2_erase = nn.Linear(self.hidden_dim, self.num_heads * self.mem_wid)
-        self.hid_2_add   = nn.Linear(self.hidden_dim, self.num_heads * self.mem_wid) # the write vector in dnc, called "add" in ntm
+        self.hid_2_add = nn.Linear(
+            self.hidden_dim, self.num_heads * self.mem_wid
+        )  # the write vector in dnc, called "add" in ntm
 
         # logging
-        self.logger.warning("<-----------------------------------> WriteHeads: {" + str(self.num_heads) + " heads}")
+        self.logger.warning(
+            "<-----------------------------------> WriteHeads: {"
+            + str(self.num_heads)
+            + " heads}"
+        )
         self.logger.warning(self)
 
         # reset
         self._reset()
 
     def visual(self):
-        if self.visualize:      # here we visualize the wl_curr of the first batch
-            self.win_head = self.vis.heatmap(self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).numpy(), env=self.refs, win=self.win_head, opts=dict(title="write_head"))
+        if self.visualize:  # here we visualize the wl_curr of the first batch
+            self.win_head = self.vis.heatmap(
+                self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).numpy(),
+                env=self.refs,
+                win=self.win_head,
+                opts=dict(title="write_head"),
+            )
 
     def _update_usage(self, prev_usage_vb):
         """
@@ -47,8 +59,8 @@ class DynamicWriteHead(DynamicHead):
         # calculate the aggregated effect of all write heads
         # NOTE: how multiple write heads are delt w/ is not discussed in the paper
         # NOTE: this part is only shown in the source code
-        write_weights_vb = 1. - torch.prod(1. - self.wl_prev_vb, 1)
-        return prev_usage_vb + (1. - prev_usage_vb) * write_weights_vb
+        write_weights_vb = 1.0 - torch.prod(1.0 - self.wl_prev_vb, 1)
+        return prev_usage_vb + (1.0 - prev_usage_vb) * write_weights_vb
 
     def _allocation(self, usage_vb, epsilon=1e-6):
         """
@@ -66,14 +78,24 @@ class DynamicWriteHead(DynamicHead):
         # ensure values are not too small prior to cumprod
         usage_vb = epsilon + (1 - epsilon) * usage_vb
         # NOTE: we sort usage in ascending order
-        sorted_usage_vb, indices_vb = torch.topk(usage_vb, k=self.mem_hei, dim=1, largest=False)
+        sorted_usage_vb, indices_vb = torch.topk(
+            usage_vb, k=self.mem_hei, dim=1, largest=False
+        )
         # to imitate tf.cumrprod(exclusive=True) https://discuss.pytorch.org/t/cumprod-exclusive-true-equivalences/2614/8
-        cat_sorted_usage_vb = torch.cat((Variable(torch.ones(self.batch_size, 1)).type(self.dtype), sorted_usage_vb), 1)[:, :-1]
+        cat_sorted_usage_vb = torch.cat(
+            (
+                Variable(torch.ones(self.batch_size, 1)).type(self.dtype),
+                sorted_usage_vb,
+            ),
+            1,
+        )[:, :-1]
         # TODO: seems we have to wait for this PR: https://github.com/pytorch/pytorch/pull/1439
         prod_sorted_usage_vb = fake_cumprod(cat_sorted_usage_vb)
         # prod_sorted_usage_vb = torch.cumprod(cat_sorted_usage_vb, dim=1) # TODO: use this once the PR is ready
         # alloc_weight_vb = (1 - sorted_usage_vb) * prod_sorted_usage_vb  # equ. (1)            # 0.1.12
-        alloc_weight_vb = (1 - sorted_usage_vb) * prod_sorted_usage_vb.squeeze()  # equ. (1)    # 0.2.0
+        alloc_weight_vb = (
+            1 - sorted_usage_vb
+        ) * prod_sorted_usage_vb.squeeze()  # equ. (1)    # 0.2.0
         _, indices_vb = torch.topk(indices_vb, k=self.mem_hei, dim=1, largest=False)
         alloc_weight_vb = alloc_weight_vb.gather(1, indices_vb)
         return alloc_weight_vb
@@ -104,13 +126,19 @@ class DynamicWriteHead(DynamicHead):
             # update usage to take into account writing to this new allocation
             # NOTE: checked: if not operate directly on _vb.data, then the _vb
             # NOTE: outside of this func will not change
-            usage_vb += (1 - usage_vb) * self.write_gate_vb[:, i, :].expand_as(usage_vb) * alloc_weights_vb[i]
+            usage_vb += (
+                (1 - usage_vb)
+                * self.write_gate_vb[:, i, :].expand_as(usage_vb)
+                * alloc_weights_vb[i]
+            )
         # pack the allocation weights for write heads into one tensor
         alloc_weight_vb = torch.stack(alloc_weights_vb, dim=1)
-        self.wl_curr_vb = self.write_gate_vb.expand_as(alloc_weight_vb) * (self.alloc_gate_vb.expand_as(self.wc_vb) * alloc_weight_vb + \
-                                                                           (1. - self.alloc_gate_vb.expand_as(self.wc_vb)) * self.wc_vb)
+        self.wl_curr_vb = self.write_gate_vb.expand_as(alloc_weight_vb) * (
+            self.alloc_gate_vb.expand_as(self.wc_vb) * alloc_weight_vb
+            + (1.0 - self.alloc_gate_vb.expand_as(self.wc_vb)) * self.wc_vb
+        )
 
-    def _access(self, memory_vb): # write
+    def _access(self, memory_vb):  # write
         """
         variables needed:
             wl_curr_vb: [batch_size x num_heads x mem_hei]
@@ -125,9 +153,11 @@ class DynamicWriteHead(DynamicHead):
         """
 
         # first let's do erasion
-        weighted_erase_vb = torch.bmm(self.wl_curr_vb.contiguous().view(-1, self.mem_hei, 1),
-                                      self.erase_vb.contiguous().view(-1, 1, self.mem_wid)).view(-1, self.num_heads, self.mem_hei, self.mem_wid)
-        keep_vb = torch.prod(1. - weighted_erase_vb, dim=1)
+        weighted_erase_vb = torch.bmm(
+            self.wl_curr_vb.contiguous().view(-1, self.mem_hei, 1),
+            self.erase_vb.contiguous().view(-1, 1, self.mem_wid),
+        ).view(-1, self.num_heads, self.mem_hei, self.mem_wid)
+        keep_vb = torch.prod(1.0 - weighted_erase_vb, dim=1)
         memory_vb = memory_vb * keep_vb
         # finally let's write (do addition)
         return memory_vb + torch.bmm(self.wl_curr_vb.transpose(1, 2), self.add_vb)
@@ -136,13 +166,21 @@ class DynamicWriteHead(DynamicHead):
         # content focus
         super(DynamicWriteHead, self).forward(hidden_vb, memory_vb)
         # location focus
-        self.alloc_gate_vb = F.sigmoid(self.hid_2_alloc_gate(hidden_vb)).view(-1, self.num_heads, 1)
-        self.write_gate_vb = F.sigmoid(self.hid_2_write_gate(hidden_vb)).view(-1, self.num_heads, 1)
+        self.alloc_gate_vb = F.sigmoid(self.hid_2_alloc_gate(hidden_vb)).view(
+            -1, self.num_heads, 1
+        )
+        self.write_gate_vb = F.sigmoid(self.hid_2_write_gate(hidden_vb)).view(
+            -1, self.num_heads, 1
+        )
         self._location_focus(usage_vb)
         self.wl_prev_vb = self.wl_curr_vb
         # access
-        self.erase_vb = F.sigmoid(self.hid_2_erase(hidden_vb)).view(-1, self.num_heads, self.mem_wid)
-        self.add_vb   = F.tanh(self.hid_2_add(hidden_vb)).view(-1, self.num_heads, self.mem_wid)
+        self.erase_vb = F.sigmoid(self.hid_2_erase(hidden_vb)).view(
+            -1, self.num_heads, self.mem_wid
+        )
+        self.add_vb = F.tanh(self.hid_2_add(hidden_vb)).view(
+            -1, self.num_heads, self.mem_wid
+        )
         return self._access(memory_vb)
 
     def _update_link(self, prev_link_vb, prev_preced_vb):
@@ -171,7 +209,9 @@ class DynamicWriteHead(DynamicHead):
         link_vb = prev_link_scale_vb * prev_link_vb + new_link_vb
         # Return the link with the diagonal set to zero, to remove self-looping edges.
         # TODO: set diag as 0 if there's a specific method to do that w/ later releases
-        diag_mask_vb = Variable(1 - torch.eye(self.mem_hei).unsqueeze(0).unsqueeze(0).expand_as(link_vb)).type(self.dtype)
+        diag_mask_vb = Variable(
+            1 - torch.eye(self.mem_hei).unsqueeze(0).unsqueeze(0).expand_as(link_vb)
+        ).type(self.dtype)
         link_vb = link_vb * diag_mask_vb
         return link_vb
 
@@ -190,7 +230,9 @@ class DynamicWriteHead(DynamicHead):
         """
         # write_sum_vb = torch.sum(self.wl_curr_vb, 2)              # 0.1.12
         write_sum_vb = torch.sum(self.wl_curr_vb, 2, keepdim=True)  # 0.2.0
-        return (1 - write_sum_vb).expand_as(prev_preced_vb) * prev_preced_vb + self.wl_curr_vb
+        return (1 - write_sum_vb).expand_as(
+            prev_preced_vb
+        ) * prev_preced_vb + self.wl_curr_vb
 
     def _temporal_link(self, prev_link_vb, prev_preced_vb):
         link_vb = self._update_link(prev_link_vb, prev_preced_vb)

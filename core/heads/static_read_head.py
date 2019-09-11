@@ -5,6 +5,7 @@ import torch
 
 from core.heads.static_head import StaticHead
 
+
 class StaticReadHead(StaticHead):
     def __init__(self, args):
         super(StaticReadHead, self).__init__(args)
@@ -12,15 +13,24 @@ class StaticReadHead(StaticHead):
         if self.visualize:
             self.win_head = "win_read_head"
         # logging
-        self.logger.warning("<-----------------------------------> ReadHeads:  {" + str(self.num_heads) + " heads}")
+        self.logger.warning(
+            "<-----------------------------------> ReadHeads:  {"
+            + str(self.num_heads)
+            + " heads}"
+        )
         self.logger.warning(self)
 
         # reset
         self._reset()
 
     def visual(self):
-        if self.visualize:      # here we visualize the wl_curr of the first batch
-            self.win_head = self.vis.heatmap(self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).numpy(), env=self.refs, win=self.win_head, opts=dict(title="read_head"))
+        if self.visualize:  # here we visualize the wl_curr of the first batch
+            self.win_head = self.vis.heatmap(
+                self.wl_curr_vb.data[0].clone().cpu().transpose(0, 1).numpy(),
+                env=self.refs,
+                win=self.win_head,
+                opts=dict(title="read_head"),
+            )
 
     def forward(self, hidden_vb, memory_vb):
         # content & location focus
@@ -29,7 +39,7 @@ class StaticReadHead(StaticHead):
         # access
         return self._access(memory_vb)
 
-    def _access(self, memory_vb): # read
+    def _access(self, memory_vb):  # read
         """
         variables needed:
             wl_curr_vb:   [batch_size x num_heads x mem_hei]

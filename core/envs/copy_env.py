@@ -7,6 +7,7 @@ import torch
 
 from core.env import Env
 
+
 class CopyEnv(Env):
     def __init__(self, args, env_ind=0):
         super(CopyEnv, self).__init__(args, env_ind)
@@ -17,7 +18,9 @@ class CopyEnv(Env):
         self.min_num_words = args.min_num_words
         self.max_num_words = args.max_num_words
         self.logger.warning("Word     {length}:   {%s}", self.len_word)
-        self.logger.warning("Words #  {min, max}: {%s, %s}", self.min_num_words, self.max_num_words)
+        self.logger.warning(
+            "Words #  {min, max}: {%s, %s}", self.min_num_words, self.max_num_words
+        )
 
     def _preprocessState(self, state):
         # NOTE: state input in size: batch_size x num_words  x len_word
@@ -41,7 +44,7 @@ class CopyEnv(Env):
         pass
 
     def _readable(self, datum):
-        return '+' + ' '.join(['-' if x == 0 else '%d' % x for x in datum]) + '+'
+        return "+" + " ".join(["-" if x == 0 else "%d" % x for x in datum]) + "+"
 
     def visual(self, input_ts, target_ts, mask_ts, output_ts=None):
         """
@@ -51,14 +54,24 @@ class CopyEnv(Env):
         output_ts: [(num_wordsx2+2) x batch_size x (len_word)]
         """
         output_ts = torch.round(output_ts * mask_ts) if output_ts is not None else None
-        input_strings  = [self._readable(input_ts[:, 0, i])  for i in range(input_ts.size(2))]
-        target_strings = [self._readable(target_ts[:, 0, i]) for i in range(target_ts.size(2))]
-        mask_strings   = [self._readable(mask_ts[:, 0, 0])]
-        output_strings = [self._readable(output_ts[:, 0, i]) for i in range(output_ts.size(2))] if output_ts is not None else None
-        input_strings  = 'Input:\n'  + '\n'.join(input_strings)
-        target_strings = 'Target:\n' + '\n'.join(target_strings)
-        mask_strings   = 'Mask:\n'   + '\n'.join(mask_strings)
-        output_strings = 'Output:\n' + '\n'.join(output_strings) if output_ts is not None else None
+        input_strings = [
+            self._readable(input_ts[:, 0, i]) for i in range(input_ts.size(2))
+        ]
+        target_strings = [
+            self._readable(target_ts[:, 0, i]) for i in range(target_ts.size(2))
+        ]
+        mask_strings = [self._readable(mask_ts[:, 0, 0])]
+        output_strings = (
+            [self._readable(output_ts[:, 0, i]) for i in range(output_ts.size(2))]
+            if output_ts is not None
+            else None
+        )
+        input_strings = "Input:\n" + "\n".join(input_strings)
+        target_strings = "Target:\n" + "\n".join(target_strings)
+        mask_strings = "Mask:\n" + "\n".join(mask_strings)
+        output_strings = (
+            "Output:\n" + "\n".join(output_strings) if output_ts is not None else None
+        )
         # strings = [input_strings, target_strings, mask_strings, output_strings]
         # self.logger.warning(input_strings)
         # self.logger.warning(target_strings)
@@ -98,23 +111,31 @@ class CopyEnv(Env):
         """
         self.exp_state1 = []
         # we prepare input, target, mask for each batch
-        batch_num_words     = np.random.randint(self.min_num_words, self.max_num_words+1, size=(self.batch_size))
+        batch_num_words = np.random.randint(
+            self.min_num_words, self.max_num_words + 1, size=(self.batch_size)
+        )
         max_batch_num_words = np.max(batch_num_words)
 
-        self.exp_state1.append(np.zeros((self.batch_size, max_batch_num_words * 2 + 2, self.len_word + 2))) # input
-        self.exp_state1.append(np.zeros((self.batch_size, max_batch_num_words * 2 + 2, self.len_word)))     # target
-        self.exp_state1.append(np.zeros((self.batch_size, max_batch_num_words * 2 + 2, 1)))                 # mask
+        self.exp_state1.append(
+            np.zeros((self.batch_size, max_batch_num_words * 2 + 2, self.len_word + 2))
+        )  # input
+        self.exp_state1.append(
+            np.zeros((self.batch_size, max_batch_num_words * 2 + 2, self.len_word))
+        )  # target
+        self.exp_state1.append(
+            np.zeros((self.batch_size, max_batch_num_words * 2 + 2, 1))
+        )  # mask
         for batch_ind in range(self.batch_size):
             num_words = batch_num_words[batch_ind]
-            data      = np.random.randint(2, size=(num_words, self.len_word))
+            data = np.random.randint(2, size=(num_words, self.len_word))
             # prepare input  for this sample
-            self.exp_state1[0][batch_ind][0][-2] = 1            # set start bit
-            self.exp_state1[0][batch_ind][1:num_words+1, 0:-2] = data
-            self.exp_state1[0][batch_ind][num_words+1][-1] = 1  # set end bit
+            self.exp_state1[0][batch_ind][0][-2] = 1  # set start bit
+            self.exp_state1[0][batch_ind][1 : num_words + 1, 0:-2] = data
+            self.exp_state1[0][batch_ind][num_words + 1][-1] = 1  # set end bit
             # prepare target for this sample
-            self.exp_state1[1][batch_ind][num_words+2:num_words*2+2, :] = data
+            self.exp_state1[1][batch_ind][num_words + 2 : num_words * 2 + 2, :] = data
             # prepare mask   for this sample
-            self.exp_state1[2][batch_ind][num_words+2:num_words*2+2, :] = 1
+            self.exp_state1[2][batch_ind][num_words + 2 : num_words * 2 + 2, :] = 1
 
     def reset(self):
         self._reset_experience()

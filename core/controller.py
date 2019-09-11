@@ -9,6 +9,7 @@ from torch.autograd import Variable
 
 from utils.init_weights import init_weights, normalized_columns_initializer
 
+
 class Controller(nn.Module):
     def __init__(self, args):
         super(Controller, self).__init__()
@@ -37,12 +38,14 @@ class Controller(nn.Module):
 
     def _reset_states(self):
         # we reset controller's hidden state
-        self.lstm_hidden_vb = (Variable(self.lstm_hidden_ts[0]).type(self.dtype),
-                               Variable(self.lstm_hidden_ts[1]).type(self.dtype))
+        self.lstm_hidden_vb = (
+            Variable(self.lstm_hidden_ts[0]).type(self.dtype),
+            Variable(self.lstm_hidden_ts[1]).type(self.dtype),
+        )
 
-    def _reset(self):           # NOTE: should be called at each child's __init__
+    def _reset(self):  # NOTE: should be called at each child's __init__
         self._init_weights()
-        self.type(self.dtype)   # put on gpu if possible
+        self.type(self.dtype)  # put on gpu if possible
         self.print_model()
         # reset internal states
         self.lstm_hidden_ts = []

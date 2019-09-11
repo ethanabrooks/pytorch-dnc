@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 import torch.nn as nn
 
+
 class Accessor(nn.Module):
     def __init__(self, args):
         super(Accessor, self).__init__()
@@ -51,7 +52,7 @@ class Accessor(nn.Module):
     def _reset_states(self):
         raise NotImplementedError("not implemented in base calss")
 
-    def _reset(self):           # NOTE: should be called at each child's __init__
+    def _reset(self):  # NOTE: should be called at each child's __init__
         raise NotImplementedError("not implemented in base calss")
 
     def visual(self):
